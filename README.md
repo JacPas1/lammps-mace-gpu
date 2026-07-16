@@ -14,6 +14,10 @@ The image contains:
 It deliberately does not contain a MACE model, structure, simulation input, or P3P4 code.
 Those remain external HTCondor inputs.
 
+The image is compiled on a GPU-less build host using NVIDIA's link-time CUDA driver stub.
+That stub is not installed on the runtime library path; CHTC's NVIDIA container runtime
+injects the real host driver when a GPU job starts.
+
 ## Published tags
 
 | workflow choice | compute capability | tag |
