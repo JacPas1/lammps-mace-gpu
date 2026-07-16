@@ -1,0 +1,67 @@
+name: Publish LAMMPS-MACE GPU image
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: Kokkos/NVIDIA architecture
+        required: true
+        type: choice
+        options:
+          - ampere80
+          - ada89
+          - hopper90
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve architecture
+        id: arch
+        shell: bash
+        run: |
+          case "${{ inputs.architecture }}" in
+            ampere80) echo "kokkos=AMPERE80" >> "$GITHUB_OUTPUT" ;;
+            ada89) echo "kokkos=ADA89" >> "$GITHUB_OUTPUT" ;;
+            hopper90) echo "kokkos=HOPPER90" >> "$GITHUB_OUTPUT" ;;
+            *) exit 2 ;;
+          esac
+
+      - name: Reclaim runner disk for CUDA build
+        shell: bash
+        run: |
+          df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          docker system prune --all --force
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/jacpas1/lammps-mace-gpu:${{ inputs.architecture }}-cuda12.1
+          build-args: |
+            KOKKOS_ARCH=${{ steps.arch.outputs.kokkos }}
+            IMAGE_REVISION=${{ github.sha }}
