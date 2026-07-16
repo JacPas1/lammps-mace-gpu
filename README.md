@@ -36,7 +36,11 @@ container_image = docker://ghcr.io/jacpas1/lammps-mace-gpu:ampere80-cuda12.1
 Expected single-GPU invocation:
 
 ```bash
-lmp -k on g 1 -sf kk -in in.mace
+lmp -k on g 1 -sf kk -pk kokkos newton on neigh half -in in.mace
 ```
+
+ML-MACE requires Newton pair accumulation.  LAMMPS Kokkos defaults to `newton off` and
+`neigh full` on GPUs, so both options must be overridden as shown.  If the input file
+contains a `newton` command, it must likewise be `newton on`.
 
 Scientific jobs should record the immutable image digest as well as the external model hash.
