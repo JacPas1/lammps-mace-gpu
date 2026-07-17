@@ -1,0 +1,59 @@
+--- a/src/KOKKOS/pair_mace_kokkos.cpp
++++ b/src/KOKKOS/pair_mace_kokkos.cpp
+@@ -130,10 +130,12 @@
+     k_positions(i,1) = x(i,1);
+     k_positions(i,2) = x(i,2);
+   });
++  // the kokkos buffers hold doubles; declare them as such and convert to the
++  // model dtype (a no-op for float64 models) instead of reinterpreting bits.
+   auto positions = torch::from_blob(
+     k_positions.data(),
+     {n_nodes,3},
+-    torch::TensorOptions().dtype(torch_float_dtype).device(device));
++    torch::TensorOptions().dtype(torch::kFloat64).device(device)).to(torch_float_dtype);
+ 
+   // ----- cell -----
+   // TODO: how to use kokkos here?
+@@ -252,11 +254,11 @@
+   auto unit_shifts = torch::from_blob(
+     k_unit_shifts.data(),
+     {n_edges,3},
+-    torch::TensorOptions().dtype(torch_float_dtype).device(device));
++    torch::TensorOptions().dtype(torch::kFloat64).device(device)).to(torch_float_dtype);
+   auto shifts = torch::from_blob(
+     k_shifts.data(),
+     {n_edges,3},
+-    torch::TensorOptions().dtype(torch_float_dtype).device(device));
++    torch::TensorOptions().dtype(torch::kFloat64).device(device)).to(torch_float_dtype);
+ 
+   // ----- node_attrs -----
+   // node_attrs is one-hot encoding for atomic numbers
+@@ -276,7 +278,7 @@
+   auto node_attrs = torch::from_blob(
+     k_node_attrs.data(),
+     {n_nodes, n_node_feats},
+-    torch::TensorOptions().dtype(torch_float_dtype).device(device));
++    torch::TensorOptions().dtype(torch::kFloat64).device(device)).to(torch_float_dtype);
+ 
+   // ----- mask for ghost -----
+   Kokkos::View<bool*,DeviceType> k_mask("k_mask", n_nodes);
+@@ -317,7 +319,9 @@
+   // mace energy
+   //   -> sum of site energies of local atoms
+   if (eflag_global) {
+-    auto node_energy = output.at("node_energy").toTensor();
++    // model outputs are in the model dtype; convert to the doubles lammps
++    // reads (a no-op for float64 models) before wrapping in an unmanaged view.
++    auto node_energy = output.at("node_energy").toTensor().to(torch::kFloat64).contiguous();
+     auto node_energy_ptr = static_cast<double*>(node_energy.data_ptr());
+     auto k_node_energy = Kokkos::View<double*,Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Unmanaged>>(node_energy_ptr,n_nodes);
+     eng_vdwl = 0.0;
+@@ -329,7 +333,7 @@
+ 
+   // mace forces
+   //   -> derivatives of total mace energy
+-  forces = output.at("forces").toTensor();
++  forces = output.at("forces").toTensor().to(torch::kFloat64).contiguous();
+   auto forces_ptr = static_cast<double*>(forces.data_ptr());
+   auto k_forces = Kokkos::View<double*[3],Kokkos::LayoutRight,DeviceType,Kokkos::MemoryTraits<Kokkos::Unmanaged>>(forces_ptr,n_nodes);
+   Kokkos::parallel_for("PairMACEKokkos: Extract k_forces.", n_nodes, KOKKOS_LAMBDA(const int ii) {

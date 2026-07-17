@@ -22,6 +22,13 @@ RUN wget -q \
 RUN git clone --filter=blob:none https://github.com/ACEsuit/lammps.git /src/lammps \
     && git -C /src/lammps checkout --detach "${LAMMPS_COMMIT}"
 
+# The fork's mace/kk handles model tensors as float64-only: a float32 LAMMPS
+# export gets its buffers reinterpreted rather than converted, yielding NaN
+# forces and a CUDA illegal memory access (cf. ACEsuit/mace#990).  This patch
+# makes the pair style dtype-aware; float64 models keep their zero-copy path.
+COPY patches/float32-mace-kokkos.patch /tmp/float32-mace-kokkos.patch
+RUN git -C /src/lammps apply --verbose /tmp/float32-mace-kokkos.patch
+
 # A container build host has the CUDA toolkit but no physical NVIDIA driver.
 # LibTorch's CUDA libraries have a DT_NEEDED entry for libcuda.so.1, while the
 # toolkit intentionally ships only the link-time libcuda.so driver stub.  Make

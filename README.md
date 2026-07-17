@@ -8,6 +8,11 @@ The image contains:
 - NVIDIA CUDA 12.1.1 runtime;
 - LibTorch 2.2.0 for CUDA 12.1;
 - ACEsuit/LAMMPS commit `4d222cb3ee2a6b14083c778968497bf9e0efc4b4`;
+- `patches/float32-mace-kokkos.patch`, which makes `mace/kk` dtype-aware:
+  upstream handles model tensors as float64-only, so float32 LAMMPS exports
+  produce NaN forces and a CUDA illegal memory access (cf. ACEsuit/mace#990).
+  With the patch, both float32 and float64 exports work; float64 models keep
+  the original zero-copy path;
 - Kokkos CUDA support compiled for one NVIDIA architecture per tag;
 - the `ML-MACE` package and `mace`/`mace/kk` pair styles.
 
