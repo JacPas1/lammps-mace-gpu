@@ -49,3 +49,21 @@ ML-MACE requires Newton pair accumulation.  LAMMPS Kokkos defaults to `newton of
 contains a `newton` command, it must likewise be `newton on`.
 
 Scientific jobs should record the immutable image digest as well as the external model hash.
+
+## mliap-cueq image
+
+`Dockerfile.mliap` publishes `mliap-cueq07-ngc10sep25`: NVIDIA's prebuilt
+LAMMPS+PyTorch ML-IAP container (`nvcr.io/nvidia/lammps:10Sep25_pytorch`,
+digest-pinned) plus the frozen MACE/cuEquivariance python stack from
+`mliap/requirements-frozen.txt` (mace-torch 0.3.16, cuEquivariance 0.7.0 —
+the newest release compatible with the base torch 2.8.0a0). This is the
+runtime for `pair_style mliap unified` MACE jobs; it removes the per-job
+PyPI install that the Phase 0 gates used. Multi-arch (sm80/sm90 selected at
+runtime); one tag for all architectures. `USER`/`LOGNAME` are preset because
+HTCondor runs containers under a uid absent from /etc/passwd.
+
+Expected invocation (N = number of GPUs):
+
+```bash
+mpirun -np N lmp -k on g N -sf kk -pk kokkos newton on neigh half -in in.mliap
+```

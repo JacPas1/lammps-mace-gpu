@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+# Thin derived runtime for the cuEquivariance ML-IAP MACE stack.
+# Base: NVIDIA's prebuilt LAMMPS+PyTorch container, digest-pinned to the exact
+# image validated on CHTC (W-H gate 5698489, 2-GPU MP canary 5699653, 80k-atom
+# 4-GPU gate 5712553).  On top: the frozen python package set those gates
+# installed per-job from PyPI, so production jobs need no network at startup.
+FROM nvcr.io/nvidia/lammps@sha256:c99831f4e513a49d9478cd0cd44a9f1f3718162c17579295c1bee11cc665b9f9
+
+COPY mliap/requirements-frozen.txt /tmp/requirements-frozen.txt
+
+# torch and numpy stay the base image's own builds: pip must not replace them
+# (a numpy 2.x on top of the base torch breaks its tensor<->numpy bridge).
+RUN python3 -c "import torch, numpy; print('torch==' + torch.__version__.split('+')[0]); print('numpy==' + numpy.__version__)" > /tmp/base-constraint.txt \
+    && python3 -m pip install --no-cache-dir -c /tmp/base-constraint.txt \
+       -r /tmp/requirements-frozen.txt \
+    && rm /tmp/requirements-frozen.txt /tmp/base-constraint.txt
+
+# HTCondor runs containers under a uid absent from /etc/passwd; torch
+# inductor's cache-dir lookup honors these variables before the passwd lookup.
+ENV USER=mliap \
+    LOGNAME=mliap
+
+# The full runtime stack must import without any network access.
+RUN python3 -c "import torch, numpy, mace, e3nn, cuequivariance, cuequivariance_torch; from mace.cli import create_lammps_model; print('mliap stack ok:', torch.__version__, numpy.__version__)"
+
+ARG IMAGE_REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/JacPas1/lammps-mace-gpu" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.description="NGC LAMMPS+PyTorch ML-IAP runtime + frozen MACE/cuEquivariance stack"
