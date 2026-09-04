@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.7
+# Isolated MACE-JAX benchmark runtime.  It deliberately does not replace the
+# validated Torch/LAMMPS images used by production jobs.
+FROM pytorch/pytorch:2.8.0-cuda12.9-cudnn9-runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG MACE_JAX_COMMIT=19cf364a405fcf9f2f82590a98d61bc870e05881
+ARG IMAGE_REVISION=unknown
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Keep the deployed Torch model loader at the project's validated MACE release,
+# then install the exact audited MACE-JAX revision and its CUDA-12 backend.
+RUN python -m pip install --no-cache-dir "mace-torch==0.3.16" \
+    && git clone https://github.com/ACEsuit/mace-jax.git /opt/mace-jax \
+    && git -C /opt/mace-jax checkout "${MACE_JAX_COMMIT}" \
+    && python -m pip install --no-cache-dir "/opt/mace-jax[jax-cuda12]"
+
+ENV USER=macejax \
+    LOGNAME=macejax \
+    JAX_ENABLE_X64=True \
+    XLA_PYTHON_CLIENT_PREALLOCATE=false
+
+RUN python - <<'PY'
+import ase
+import jax
+import mace
+import mace_jax
+import torch
+print('mace-jax runtime ok')
+print('torch', torch.__version__)
+print('mace', getattr(mace, '__version__', 'unknown'))
+print('jax', jax.__version__)
+print('mace_jax', getattr(mace_jax, '__version__', 'unknown'))
+PY
+
+LABEL org.opencontainers.image.source="https://github.com/JacPas1/lammps-mace-gpu" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.description="Isolated MACE-JAX CUDA 12 performance benchmark runtime"
