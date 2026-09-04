@@ -5,10 +5,15 @@ FROM ghcr.io/jacpas1/lammps-mace-gpu@sha256:0b64e85a0554744607ff262f6d7d1ebbcecc
 ARG MACE_COMMIT=59ad3a473ca02101a1cf02db242197e8d616dd11
 ARG IMAGE_REVISION=unknown
 
-RUN python3 -m pip install --no-cache-dir "torch-sim-atomistic==0.6.1" \
+RUN python3 -c "import numpy; print('numpy==' + numpy.__version__)" > /tmp/base-constraint.txt \
+    && python3 -m pip install --no-cache-dir -c /tmp/base-constraint.txt \
+       "warp-lang==1.17.0" "tables==3.11.1" \
+    && python3 -m pip install --no-cache-dir --no-deps \
+       "nvalchemi-toolkit-ops==0.4.1" "torch-sim-atomistic==0.6.1" \
     && git clone https://github.com/ACEsuit/mace.git /opt/mace-current \
     && git -C /opt/mace-current checkout "${MACE_COMMIT}" \
-    && python3 -m pip install --no-cache-dir --no-deps --force-reinstall /opt/mace-current
+    && python3 -m pip install --no-cache-dir --no-deps --force-reinstall /opt/mace-current \
+    && rm /tmp/base-constraint.txt
 
 ENV USER=torchsim \
     LOGNAME=torchsim \
