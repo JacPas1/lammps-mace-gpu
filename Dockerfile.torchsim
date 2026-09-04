@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+# GPU-resident MD benchmark using the first-party MACE TorchSim interface.
+FROM ghcr.io/jacpas1/lammps-mace-gpu@sha256:0b64e85a0554744607ff262f6d7d1ebbcecc9ce02da241e49900cc968438438c
+
+ARG MACE_COMMIT=59ad3a473ca02101a1cf02db242197e8d616dd11
+ARG IMAGE_REVISION=unknown
+
+RUN python3 -m pip install --no-cache-dir "torch-sim-atomistic==0.6.1" \
+    && git clone https://github.com/ACEsuit/mace.git /opt/mace-current \
+    && git -C /opt/mace-current checkout "${MACE_COMMIT}" \
+    && python3 -m pip install --no-cache-dir --no-deps --force-reinstall /opt/mace-current
+
+ENV USER=torchsim \
+    LOGNAME=torchsim \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+RUN python3 - <<'PY'
+import torch
+import torch_sim
+from mace.calculators.mace_torchsim import MaceTorchSimModel
+print('torch-sim runtime ok')
+print('torch', torch.__version__)
+print('torch_sim', torch_sim.__version__)
+print('wrapper', MaceTorchSimModel.__name__)
+PY
+
+LABEL org.opencontainers.image.source="https://github.com/JacPas1/lammps-mace-gpu" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.description="MACE TorchSim GPU-resident MD performance benchmark runtime"
