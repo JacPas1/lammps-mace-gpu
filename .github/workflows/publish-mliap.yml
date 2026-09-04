@@ -1,4 +1,4 @@
-name: Publish mliap-cueq image
+name: Publish isolated MACE-JAX benchmark image
 
 on:
   workflow_dispatch: {}
@@ -38,9 +38,10 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.mliap
+          file: Dockerfile.jax
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/jacpas1/lammps-mace-gpu:mliap-cueq07-ngc10sep25
+          tags: ghcr.io/jacpas1/lammps-mace-gpu:mace-jax-20260904
           build-args: |
+            MACE_JAX_COMMIT=19cf364a405fcf9f2f82590a98d61bc870e05881
             IMAGE_REVISION=${{ github.sha }}
